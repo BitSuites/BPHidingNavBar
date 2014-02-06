@@ -10,10 +10,34 @@
 
 @implementation BPHidingNavBar
 
-- (void)awakeFromNib{
-    [super awakeFromNib];
+- (id)init{
+    self = [super init];
+    if (self) {
+        [self initSetup];
+    }
+    return self;
+}
+
+- (id)initWithFrame:(CGRect)frame{
+    self = [super initWithFrame:frame];
+    if (self) {
+        [self initSetup];
+    }
+    return self;
+}
+
+- (id)initWithCoder:(NSCoder *)aDecoder{
+    self = [super initWithCoder:aDecoder];
+    if (self) {
+        [self initSetup];
+    }
+    return self;
+}
+
+- (void)initSetup{
     updatingOffset = NO;
     [[NSNotificationCenter defaultCenter] addObserver:self  selector:@selector(orientationChanged)  name:UIDeviceOrientationDidChangeNotification  object:nil];
+    _scrollHoldPercent = 0.2;
 }
 
 - (void)setAssociatedScrollView:(UIScrollView *)associatedScrollView{
@@ -100,6 +124,28 @@
             return;
 		CGPoint offset = [self.associatedScrollView contentOffset];
         
+        // If this is start of scroll determine if should be holding for displaying nav bar
+        if ([self.associatedScrollView panGestureRecognizer].state == UIGestureRecognizerStateBegan) {
+            startedScollPoint = offset.y;
+            if ((-(lastHeight - [self statusBarHeight])) == self.frame.origin.y) {
+                holdScrolling = YES;
+            } else {
+                holdScrolling = NO;
+            }
+        }
+        
+        if (holdScrolling) {
+            // If holding Determine if hold has expired based on scrolling past percent of screen
+            // Or if we are at the top of the screen
+            float diff = startedScollPoint - offset.y;
+            if (diff > (self.associatedScrollView.frame.size.height * _scrollHoldPercent) || offset.y <= 0) {
+                holdScrolling = NO;
+            } else {
+                lastOffset = offset.y;
+                return;
+            }
+        }
+        
         CGFloat topInset = lastHeight + [self statusBarHeight];
         if(offset.y + topInset <= 0.0){
 			// Above the top, bouncing
@@ -112,10 +158,10 @@
 			lastOffset = offset.y;
 			return;
         }
-        
 		CGFloat frameOrigin = self.frame.origin.y;
-		
 		CGFloat dy = offset.y - lastOffset;
+        
+		
 		frameOrigin = MIN(MAX(frameOrigin - dy, - (lastHeight - [self statusBarHeight])), [self statusBarHeight]);
 		
 		CGRect currentFrame = self.frame;

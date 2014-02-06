@@ -17,9 +17,11 @@
     BOOL updatingOffset;
     
     CGFloat startedScollPoint;
-    BOOL scorllShowTopBar;
+    BOOL holdScrolling;
+    
 }
 
 @property (nonatomic, strong) UIScrollView *associatedScrollView;
+@property (nonatomic) CGFloat scrollHoldPercent; // Default 0.2 percent of frame
 
 @end
