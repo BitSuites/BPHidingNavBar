@@ -8,24 +8,34 @@
 
 #import "BPHidingNavBar.h"
 
-#define kInsetAmount 64.0
-
 @implementation BPHidingNavBar
+
+- (void)awakeFromNib{
+    [super awakeFromNib];
+    updatingOffset = NO;
+    [[NSNotificationCenter defaultCenter] addObserver:self  selector:@selector(orientationChanged)  name:UIDeviceOrientationDidChangeNotification  object:nil];
+}
 
 - (void)setAssociatedScrollView:(UIScrollView *)associatedScrollView{
 	if(_associatedScrollView){
 		[_associatedScrollView removeObserver:self forKeyPath:@"contentOffset"];
 		_associatedScrollView = nil;
 	}
-	
-	if(associatedScrollView){
-		[associatedScrollView setScrollIndicatorInsets:UIEdgeInsetsMake(kInsetAmount, 0.0, 0.0, 0.0)];
-		[associatedScrollView setContentInset:UIEdgeInsetsMake(kInsetAmount, 0.0, 0.0, 0.0)];
-		
-		[associatedScrollView addObserver:self forKeyPath:@"contentOffset" options:0 context:NULL];
+    
+    [UIView animateWithDuration:0.3 animations:^{
+        CGRect currentFrame = self.frame;
+        currentFrame.origin.y = 20.0;
+        self.frame = currentFrame;
+        percentShowing = 1.0;
+		[self updateViewAlpha];
+    }];
+    
+	_associatedScrollView = associatedScrollView;
+	if(_associatedScrollView){
+        [self updateScrollInset];
+		[_associatedScrollView addObserver:self forKeyPath:@"contentOffset" options:0 context:NULL];
 	}
 	
-	_associatedScrollView = associatedScrollView;
 	lastOffset = associatedScrollView.contentOffset.y;
 	checkedBackButton = NO;
 }
@@ -38,30 +48,80 @@
 	return [NSStringFromClass([possibleView class]) rangeOfString:@"Background"].location != NSNotFound;
 }
 
+- (void)updateScrollInset{
+    lastHeight = self.frame.size.height;
+    if (_associatedScrollView) {
+        CGFloat top = lastHeight + [self statusBarHeight];
+        [_associatedScrollView setScrollIndicatorInsets:UIEdgeInsetsMake(top, 0.0, 0.0, 0.0)];
+        [_associatedScrollView setContentInset:UIEdgeInsetsMake(top, 0.0, 0.0, 0.0)];
+    }
+}
+
+- (CGFloat)statusBarHeight{
+    return ([[UIApplication sharedApplication] isStatusBarHidden] ? 0.0 : 20.0);
+}
+
+- (void)updateInfoForOrientationChange{
+    // Update everything for an orientation change
+    updatingOffset = YES;
+    [self updateScrollInset];
+    CGRect currentFrame = self.frame;
+    CGFloat total = [self statusBarHeight] + (lastHeight - [self statusBarHeight]);
+    CGFloat amountCaluclated = total - (total * percentShowing);
+    currentFrame.origin.y = ([self statusBarHeight] - amountCaluclated);
+    self.frame = currentFrame;
+    [self updateViewAlpha];
+    lastOffset = [self.associatedScrollView contentOffset].y;
+    updatingOffset = NO;
+}
+
+- (void)orientationChanged{
+    // Give fraction of sec for value to change
+    [self performSelector:@selector(updateInfoForOrientationChange) withObject:nil afterDelay:0.1];
+}
+
+- (void)updateViewAlpha{
+    // Adjust subview alphas
+    for (UIView *view in self.subviews) {
+        // This filters both the Back button view and the Background view
+        if(![self isBackgroundView:view] && ![self isBackButtonView:view])
+            [view setAlpha:percentShowing];
+        
+        // If we're showing the back button, go ahead and do that one too
+        if([self isBackButtonView:view] && showingBack){
+            [view setAlpha:percentShowing];
+        }
+    }
+}
+
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context{
 	if([keyPath isEqualToString:@"contentOffset"]){
+        if (updatingOffset)
+            return;
 		CGPoint offset = [self.associatedScrollView contentOffset];
-		
-		//NSLog(@"%f", offset.y);
-		
-		//NSLog(@"%@", self.subviews);
-		
-		if(offset.y + kInsetAmount <= 0.0){
+        
+        CGFloat topInset = lastHeight + [self statusBarHeight];
+        if(offset.y + topInset <= 0.0){
 			// Above the top, bouncing
 			lastOffset = offset.y;
 			return;
 		}
-		
+        
+        if(self.associatedScrollView.contentOffset.y > (self.associatedScrollView.contentSize.height - self.associatedScrollView.frame.size.height + self.associatedScrollView.contentInset.bottom)){
+			// Bottom bouncing
+			lastOffset = offset.y;
+			return;
+        }
+        
 		CGFloat frameOrigin = self.frame.origin.y;
 		
 		CGFloat dy = offset.y - lastOffset;
-		frameOrigin = MIN(MAX(frameOrigin - dy, -24.0), 20.0);
-		//NSLog(@"frameOrigin: %f", frameOrigin);
+		frameOrigin = MIN(MAX(frameOrigin - dy, - (lastHeight - [self statusBarHeight])), [self statusBarHeight]);
 		
 		CGRect currentFrame = self.frame;
 		currentFrame.origin.y = frameOrigin;
-		CGFloat percent = (frameOrigin + 24.0) / 44.0;
-		NSLog(@"%f", percent);
+		percentShowing = (frameOrigin + (lastHeight - [self statusBarHeight])) / lastHeight;
+    
 		self.frame = currentFrame;
 		
 		// If the percent is 1.0 that means the view is fully visible and we can compute whether the back button is showing or not
@@ -78,24 +138,7 @@
 			}];
 		}
 		
-//		NSMutableDictionary *currentTitleTextAttributes = [self.titleTextAttributes mutableCopy];
-//		if(!currentTitleTextAttributes)
-//			currentTitleTextAttributes = [@{NSForegroundColorAttributeName : [UIColor blackColor]} mutableCopy];
-//		UIColor *currentColor = currentTitleTextAttributes[NSForegroundColorAttributeName];
-//		[currentTitleTextAttributes setObject:[currentColor colorWithAlphaComponent:percent] forKey:NSForegroundColorAttributeName];
-//		[self setTitleTextAttributes:currentTitleTextAttributes];
-		
-		// Adjust subview alphas
-		for (UIView *view in self.subviews) {
-			// This filters both the Back button view and the Background view
-			if(![self isBackgroundView:view] && ![self isBackButtonView:view])
-				[view setAlpha:percent];
-			
-			// If we're showing the back button, go ahead and do that one too
-			if([self isBackButtonView:view] && showingBack){
-				[view setAlpha:percent];
-			}
-		}
+		[self updateViewAlpha];
 		
 		lastOffset = offset.y;
 	}

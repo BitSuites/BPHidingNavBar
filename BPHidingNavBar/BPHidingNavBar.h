@@ -12,6 +12,12 @@
 	CGFloat lastOffset;
 	BOOL checkedBackButton;
 	BOOL showingBack;
+    CGFloat lastHeight;
+    CGFloat percentShowing;
+    BOOL updatingOffset;
+    
+    CGFloat startedScollPoint;
+    BOOL scorllShowTopBar;
 }
 
 @property (nonatomic, strong) UIScrollView *associatedScrollView;

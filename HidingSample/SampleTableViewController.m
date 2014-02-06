@@ -32,6 +32,10 @@
     // Dispose of any resources that can be recreated.
 }
 
+- (BOOL)prefersStatusBarHidden {
+    return NO;
+}
+
 - (void)viewWillAppear:(BOOL)animated{
 	[super viewWillAppear:animated];
 	
@@ -57,7 +61,7 @@
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellIdentifier forIndexPath:indexPath];
     
     // Configure the cell...
-	[cell.textLabel setText:[NSString stringWithFormat:@"%d", indexPath.row]];
+	[cell.textLabel setText:[NSString stringWithFormat:@"%ld", (long)indexPath.row]];
     
     return cell;
 }
