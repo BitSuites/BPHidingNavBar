@@ -24,7 +24,8 @@
     // Uncomment the following line to display an Edit button in the navigation bar for this view controller.
     // self.navigationItem.rightBarButtonItem = self.editButtonItem;
 	
-	[self setAutomaticallyAdjustsScrollViewInsets:NO];
+    if (NSFoundationVersionNumber > NSFoundationVersionNumber_iOS_6_1)
+        [self setAutomaticallyAdjustsScrollViewInsets:NO];
 }
 
 - (void)didReceiveMemoryWarning{
@@ -41,7 +42,7 @@
 	
 	BPHidingNavBar *navBar = (BPHidingNavBar *)self.navigationController.navigationBar;
 	
-	[navBar setAssociatedScrollView:self.tableView];
+	[navBar setupNavBarWithAssiciatedScrollView:self.tableView];
 }
 
 #pragma mark - Table view data source

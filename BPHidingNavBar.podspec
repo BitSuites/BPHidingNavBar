@@ -7,7 +7,7 @@ Pod::Spec.new do |s|
   s.license      = 'MIT'
   s.authors      = { "Justin Carstens" => "justinc@bitsuites.com", "Cory Imdieke" => "coryi@bitsuites.com" }
 
-  s.platform     = :ios, '7.0'
+  s.platform     = :ios, ‘6.0’
   s.source       = { :git => "git@github.com:BitSuites/BPHidingNavBar.git"}
 
   s.source_files  = 'BPHidingNavBar/*.{h,m}'

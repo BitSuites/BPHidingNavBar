@@ -34,34 +34,48 @@
     return self;
 }
 
-- (void)initSetup{
-    updatingOffset = NO;
-    [[NSNotificationCenter defaultCenter] addObserver:self  selector:@selector(orientationChanged)  name:UIDeviceOrientationDidChangeNotification  object:nil];
-    _scrollHoldPercent = 0.2;
+- (void)dealloc{
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIDeviceOrientationDidChangeNotification object:nil];
+    [_associatedScrollView removeObserver:self forKeyPath:@"contentOffset"];
 }
 
-- (void)setAssociatedScrollView:(UIScrollView *)associatedScrollView{
-	if(_associatedScrollView){
-		[_associatedScrollView removeObserver:self forKeyPath:@"contentOffset"];
-		_associatedScrollView = nil;
-	}
-    
+- (void)initSetup{
+    updatingOffset = NO;
+    _holdUpdates = NO;
+    _scrollHoldPercent = 0.2;
+    if (!(NSFoundationVersionNumber > NSFoundationVersionNumber_iOS_6_1)) // Stop NavBar only works on iOS 7
+        return;
+    [[NSNotificationCenter defaultCenter] addObserver:self  selector:@selector(orientationChanged)  name:UIDeviceOrientationDidChangeNotification  object:nil];
+}
+
+- (void)setupNavBarWithAssiciatedScrollView:(UIScrollView *)associatedScrollView{
+    if (!(NSFoundationVersionNumber > NSFoundationVersionNumber_iOS_6_1)) // Stop NavBar only works on iOS 7
+        return;
     [UIView animateWithDuration:0.3 animations:^{
         CGRect currentFrame = self.frame;
         currentFrame.origin.y = 20.0;
         self.frame = currentFrame;
         percentShowing = 1.0;
-		[self updateViewAlpha];
     }];
+    [self setAssociatedScrollView:associatedScrollView];
+	checkedBackButton = NO;
+}
+
+- (void)setAssociatedScrollView:(UIScrollView *)associatedScrollView{
+    if (!(NSFoundationVersionNumber > NSFoundationVersionNumber_iOS_6_1)) // Stop NavBar only works on iOS 7
+        return;
+	if(_associatedScrollView){
+		[_associatedScrollView removeObserver:self forKeyPath:@"contentOffset"];
+		_associatedScrollView = nil;
+	}
     
 	_associatedScrollView = associatedScrollView;
 	if(_associatedScrollView){
-        [self updateScrollInset];
+        [self updateScrollInsetRotation:NO];
 		[_associatedScrollView addObserver:self forKeyPath:@"contentOffset" options:0 context:NULL];
 	}
 	
 	lastOffset = associatedScrollView.contentOffset.y;
-	checkedBackButton = NO;
 }
 
 - (BOOL)isBackButtonView:(UIView *)possibleView{
@@ -72,12 +86,22 @@
 	return [NSStringFromClass([possibleView class]) rangeOfString:@"Background"].location != NSNotFound;
 }
 
-- (void)updateScrollInset{
+- (void)updateScrollInsetRotation:(BOOL)rotation{
     lastHeight = self.frame.size.height;
     if (_associatedScrollView) {
+        updatingOffset = YES;
         CGFloat top = lastHeight + [self statusBarHeight];
+        BOOL firstLoad = _associatedScrollView.scrollIndicatorInsets.top < top;
+        CGPoint startOffest = _associatedScrollView.contentOffset;
+        
         [_associatedScrollView setScrollIndicatorInsets:UIEdgeInsetsMake(top, 0.0, 0.0, 0.0)];
         [_associatedScrollView setContentInset:UIEdgeInsetsMake(top, 0.0, 0.0, 0.0)];
+        // Should only add the top on the first time it is loaded or the offest begins to go beyond the bar
+        if (startOffest.y <= 0 && startOffest.y > -top && !rotation && firstLoad)
+            [_associatedScrollView setContentOffset:CGPointMake(startOffest.x, (-top + startOffest.y))];
+        else
+            [_associatedScrollView setContentOffset:startOffest];
+        updatingOffset = NO;
     }
 }
 
@@ -86,9 +110,22 @@
 }
 
 - (void)updateInfoForOrientationChange{
-    // Update everything for an orientation change
     updatingOffset = YES;
-    [self updateScrollInset];
+    
+    // If the new orientation is not tall enough set everything to be showing
+    float minHeight = (lastHeight - [self statusBarHeight]) + self.associatedScrollView.frame.size.height;
+    if (self.associatedScrollView.contentSize.height <= minHeight) {
+        percentShowing = 1.0;
+    }
+    
+    [self updateScrollInsetRotation:YES];
+    [self updateBasedOnPercent];
+    updatingOffset = NO;
+}
+
+- (void)updateBasedOnPercent{
+    // Reloads nav bar bassed on the percent amount shown
+    updatingOffset = YES;
     CGRect currentFrame = self.frame;
     CGFloat total = [self statusBarHeight] + (lastHeight - [self statusBarHeight]);
     CGFloat amountCaluclated = total - (total * percentShowing);
@@ -105,11 +142,13 @@
 }
 
 - (void)updateViewAlpha{
+    [self checkBackButton];
     // Adjust subview alphas
     for (UIView *view in self.subviews) {
         // This filters both the Back button view and the Background view
-        if(![self isBackgroundView:view] && ![self isBackButtonView:view])
+        if(![self isBackgroundView:view] && ![self isBackButtonView:view]) {
             [view setAlpha:percentShowing];
+        }
         
         // If we're showing the back button, go ahead and do that one too
         if([self isBackButtonView:view] && showingBack){
@@ -120,8 +159,16 @@
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context{
 	if([keyPath isEqualToString:@"contentOffset"]){
-        if (updatingOffset)
+        if (updatingOffset || _holdUpdates)
             return;
+        // Make sure content is tall enough
+        float minHeight = (lastHeight - [self statusBarHeight]) + self.associatedScrollView.frame.size.height;
+        if (self.associatedScrollView.contentSize.height <= minHeight) {
+            percentShowing = 1.0;
+            [self updateBasedOnPercent];
+            return;
+        }
+        
 		CGPoint offset = [self.associatedScrollView contentOffset];
         
         // If this is start of scroll determine if should be holding for displaying nav bar
@@ -148,14 +195,18 @@
         
         CGFloat topInset = lastHeight + [self statusBarHeight];
         if(offset.y + topInset <= 0.0){
-			// Above the top, bouncing
+			// Above the top, bouncing nav should be fully showing
 			lastOffset = offset.y;
+            percentShowing = 1.0;
+            [self updateBasedOnPercent];
 			return;
 		}
         
         if(self.associatedScrollView.contentOffset.y > (self.associatedScrollView.contentSize.height - self.associatedScrollView.frame.size.height + self.associatedScrollView.contentInset.bottom)){
-			// Bottom bouncing
+			// Bellow bottom, bouncing nav should be fully hidden
 			lastOffset = offset.y;
+            percentShowing = 0.0;
+            [self updateBasedOnPercent];
 			return;
         }
 		CGFloat frameOrigin = self.frame.origin.y;
@@ -163,31 +214,40 @@
         
 		
 		frameOrigin = MIN(MAX(frameOrigin - dy, - (lastHeight - [self statusBarHeight])), [self statusBarHeight]);
-		
 		CGRect currentFrame = self.frame;
 		currentFrame.origin.y = frameOrigin;
+        
+        // Update Insets so headers stay at the top
+        updatingOffset = YES;
+        float topOffset = frameOrigin + lastHeight;
+        [_associatedScrollView setScrollIndicatorInsets:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
+        [_associatedScrollView setContentInset:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
+        updatingOffset = NO;
+        
 		percentShowing = (frameOrigin + (lastHeight - [self statusBarHeight])) / lastHeight;
-    
+        
 		self.frame = currentFrame;
-		
-		// If the percent is 1.0 that means the view is fully visible and we can compute whether the back button is showing or not
-		if(!checkedBackButton){
-			// Set showing back button
-			[[self subviews] enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
-				UIView *view = obj;
-				if([self isBackButtonView:view]){
-					// Found back button
-					*stop = YES;
-					showingBack = view.alpha == 1.0;
-					checkedBackButton = YES;
-				}
-			}];
-		}
 		
 		[self updateViewAlpha];
 		
 		lastOffset = offset.y;
 	}
+}
+
+- (void)checkBackButton{
+    if(!checkedBackButton){
+		// If the percent is 1.0 that means the view is fully visible and we can compute whether the back button is showing or not
+        // Set showing back button
+        [[self subviews] enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+            UIView *view = obj;
+            if([self isBackButtonView:view]){
+                // Found back button
+                *stop = YES;
+                showingBack = view.alpha == 1.0;
+                checkedBackButton = YES;
+            }
+        }];
+    }
 }
 
 @end
