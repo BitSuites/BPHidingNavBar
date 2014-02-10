@@ -1,6 +1,5 @@
 //
 //  BPHidingNavBar.m
-//  HidingSample
 //
 //  Created by Cory Imdieke on 12/31/13.
 //  Copyright (c) 2013 BitSuites, LLC. All rights reserved.
@@ -42,27 +41,35 @@
 - (void)initSetup{
     updatingOffset = NO;
     _holdUpdates = NO;
+    checkStartedScrolling = NO;
     _scrollHoldPercent = 0.2;
-    if (!(NSFoundationVersionNumber > NSFoundationVersionNumber_iOS_6_1)) // Stop NavBar only works on iOS 7
+    if ([self isPreiOS7]) // Stop NavBar only works on iOS 7
         return;
     [[NSNotificationCenter defaultCenter] addObserver:self  selector:@selector(orientationChanged)  name:UIDeviceOrientationDidChangeNotification  object:nil];
 }
 
+#pragma mark - User Methods
+
 - (void)setupNavBarWithAssiciatedScrollView:(UIScrollView *)associatedScrollView{
-    if (!(NSFoundationVersionNumber > NSFoundationVersionNumber_iOS_6_1)) // Stop NavBar only works on iOS 7
+    if ([self isPreiOS7]) // Stop NavBar only works on iOS 7
         return;
     [UIView animateWithDuration:0.3 animations:^{
         CGRect currentFrame = self.frame;
         currentFrame.origin.y = 20.0;
         self.frame = currentFrame;
         percentShowing = 1.0;
+        // Fixes issue if controller is nil when going back sliding
+        if (!associatedScrollView) {
+            [self updateViewAlpha];
+        }
     }];
     [self setAssociatedScrollView:associatedScrollView];
+    checkStartedScrolling = NO;
 	checkedBackButton = NO;
 }
 
 - (void)setAssociatedScrollView:(UIScrollView *)associatedScrollView{
-    if (!(NSFoundationVersionNumber > NSFoundationVersionNumber_iOS_6_1)) // Stop NavBar only works on iOS 7
+    if ([self isPreiOS7]) // Stop NavBar only works on iOS 7
         return;
 	if(_associatedScrollView){
 		[_associatedScrollView removeObserver:self forKeyPath:@"contentOffset"];
@@ -76,6 +83,30 @@
 	}
 	
 	lastOffset = associatedScrollView.contentOffset.y;
+}
+
+- (void)showFullNavBar;{
+    [self showFullNavBarAnimated:YES];
+}
+
+- (void)showFullNavBarAnimated:(BOOL)animated{
+    if ([self isPreiOS7]) // Stop NavBar only works on iOS 7
+        return;
+    [UIView animateWithDuration:(animated ? 0.3 : 0.0) animations:^{
+        CGRect currentFrame = self.frame;
+        currentFrame.origin.y = 20.0;
+        self.frame = currentFrame;
+        percentShowing = 1.0;
+        [self updateViewAlpha];
+    } completion:^(BOOL finished) {
+		lastOffset = _associatedScrollView.contentOffset.y;
+    }];
+}
+
+#pragma mark - Local Methdos
+
+- (BOOL)isPreiOS7{
+    return (!(NSFoundationVersionNumber > NSFoundationVersionNumber_iOS_6_1));
 }
 
 - (BOOL)isBackButtonView:(UIView *)possibleView{
@@ -111,7 +142,6 @@
 
 - (void)updateInfoForOrientationChange{
     updatingOffset = YES;
-    
     // If the new orientation is not tall enough set everything to be showing
     float minHeight = (lastHeight - [self statusBarHeight]) + self.associatedScrollView.frame.size.height;
     if (self.associatedScrollView.contentSize.height <= minHeight) {
@@ -161,11 +191,28 @@
 	if([keyPath isEqualToString:@"contentOffset"]){
         if (updatingOffset || _holdUpdates)
             return;
+        // Don't start updating until the user starts scrolling
+        if (!checkStartedScrolling) {
+            if ([self.associatedScrollView panGestureRecognizer].state == UIGestureRecognizerStateBegan){
+                checkStartedScrolling = YES;
+            } else {
+                // Fix for container items where the offset gets updated
+                updatingOffset = YES;
+                float topOffset = self.frame.origin.y + lastHeight;
+                [_associatedScrollView setScrollIndicatorInsets:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
+                [_associatedScrollView setContentInset:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
+                updatingOffset = NO;
+                return;
+            }
+        }
+        
         // Make sure content is tall enough
         float minHeight = (lastHeight - [self statusBarHeight]) + self.associatedScrollView.frame.size.height;
         if (self.associatedScrollView.contentSize.height <= minHeight) {
-            percentShowing = 1.0;
-            [self updateBasedOnPercent];
+            if (percentShowing != 1.0) {
+                percentShowing = 1.0;
+                [self updateBasedOnPercent];
+            }
             return;
         }
         
@@ -197,16 +244,20 @@
         if(offset.y + topInset <= 0.0){
 			// Above the top, bouncing nav should be fully showing
 			lastOffset = offset.y;
-            percentShowing = 1.0;
-            [self updateBasedOnPercent];
+            if (percentShowing != 1.0) {
+                percentShowing = 1.0;
+                [self updateBasedOnPercent];
+            }
 			return;
 		}
         
         if(self.associatedScrollView.contentOffset.y > (self.associatedScrollView.contentSize.height - self.associatedScrollView.frame.size.height + self.associatedScrollView.contentInset.bottom)){
 			// Bellow bottom, bouncing nav should be fully hidden
 			lastOffset = offset.y;
-            percentShowing = 0.0;
-            [self updateBasedOnPercent];
+            if (percentShowing != 0.0) {
+                percentShowing = 0.0;
+                [self updateBasedOnPercent];
+            }
 			return;
         }
 		CGFloat frameOrigin = self.frame.origin.y;
@@ -220,8 +271,10 @@
         // Update Insets so headers stay at the top
         updatingOffset = YES;
         float topOffset = frameOrigin + lastHeight;
-        [_associatedScrollView setScrollIndicatorInsets:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
-        [_associatedScrollView setContentInset:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
+        if (_associatedScrollView.contentInset.top >= 0) {
+            [_associatedScrollView setScrollIndicatorInsets:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
+            [_associatedScrollView setContentInset:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
+        }
         updatingOffset = NO;
         
 		percentShowing = (frameOrigin + (lastHeight - [self statusBarHeight])) / lastHeight;
@@ -244,7 +297,8 @@
                 // Found back button
                 *stop = YES;
                 showingBack = view.alpha == 1.0;
-                checkedBackButton = YES;
+                if (checkStartedScrolling)
+                    checkedBackButton = YES;
             }
         }];
     }

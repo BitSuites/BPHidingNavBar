@@ -1,6 +1,5 @@
 //
 //  BPHidingNavBar.h
-//  HidingSample
 //
 //  Created by Cory Imdieke on 12/31/13.
 //  Copyright (c) 2013 BitSuites, LLC. All rights reserved.
@@ -8,9 +7,10 @@
 
 #import <UIKit/UIKit.h>
 
-@interface BPHidingNavBar : UINavigationBar <UINavigationControllerDelegate>{
+@interface BPHidingNavBar : UINavigationBar{
 	CGFloat lastOffset;
 	BOOL checkedBackButton;
+    BOOL checkStartedScrolling;
 	BOOL showingBack;
     CGFloat lastHeight;
     CGFloat percentShowing;
@@ -48,5 +48,15 @@
  @param associatedScrollView scroll view that will be used to show and hide the navBar
  */
 - (void)setupNavBarWithAssiciatedScrollView:(UIScrollView *)associatedScrollView;
+
+/** Shows the full nav bar with animation
+ */
+- (void)showFullNavBar;
+
+/** Shows the full nav bar
+ 
+ @param animated detemies whetere showing the nav bar is animated or no
+ */
+- (void)showFullNavBarAnimated:(BOOL)animated;
 
 @end

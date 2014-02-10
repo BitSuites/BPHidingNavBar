@@ -40,9 +40,7 @@
 - (void)viewWillAppear:(BOOL)animated{
 	[super viewWillAppear:animated];
 	
-	BPHidingNavBar *navBar = (BPHidingNavBar *)self.navigationController.navigationBar;
-	
-	[navBar setupNavBarWithAssiciatedScrollView:self.tableView];
+	[(BPHidingNavBar *)self.navigationController.navigationBar setupNavBarWithAssiciatedScrollView:self.tableView];
 }
 
 #pragma mark - Table view data source
