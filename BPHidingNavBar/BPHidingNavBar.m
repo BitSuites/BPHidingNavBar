@@ -162,6 +162,11 @@
     currentFrame.origin.y = ([self statusBarHeight] - amountCaluclated);
     self.frame = currentFrame;
     [self updateViewAlpha];
+    
+    float topOffset = self.frame.origin.y + lastHeight;
+    [_associatedScrollView setScrollIndicatorInsets:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
+    [_associatedScrollView setContentInset:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
+    
     lastOffset = [self.associatedScrollView contentOffset].y;
     updatingOffset = NO;
 }
