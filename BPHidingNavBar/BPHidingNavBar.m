@@ -125,8 +125,7 @@
         BOOL firstLoad = _associatedScrollView.scrollIndicatorInsets.top < top;
         CGPoint startOffest = _associatedScrollView.contentOffset;
         
-        [_associatedScrollView setScrollIndicatorInsets:UIEdgeInsetsMake(top, 0.0, 0.0, 0.0)];
-        [_associatedScrollView setContentInset:UIEdgeInsetsMake(top, 0.0, 0.0, 0.0)];
+        [self updateScrollInsetsWithTopOffset:top];
         // Should only add the top on the first time it is loaded or the offest begins to go beyond the bar
         if (startOffest.y <= 0 && startOffest.y > -top && !rotation && firstLoad)
             [_associatedScrollView setContentOffset:CGPointMake(startOffest.x, (-top + startOffest.y))];
@@ -138,6 +137,15 @@
 
 - (CGFloat)statusBarHeight{
     return ([[UIApplication sharedApplication] isStatusBarHidden] ? 0.0 : 20.0);
+}
+
+- (void)updateScrollInsetsWithTopOffset:(CGFloat)topOffset{
+    UIEdgeInsets currentScrollInsets = _associatedScrollView.scrollIndicatorInsets;
+    currentScrollInsets.top = topOffset;
+    [_associatedScrollView setScrollIndicatorInsets:currentScrollInsets];
+    UIEdgeInsets currentContentInsets = _associatedScrollView.contentInset;
+    currentContentInsets.top = topOffset;
+    [_associatedScrollView setContentInset:currentContentInsets];
 }
 
 - (void)updateInfoForOrientationChange{
@@ -164,8 +172,7 @@
     [self updateViewAlpha];
     
     float topOffset = self.frame.origin.y + lastHeight;
-    [_associatedScrollView setScrollIndicatorInsets:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
-    [_associatedScrollView setContentInset:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
+    [self updateScrollInsetsWithTopOffset:topOffset];
     
     lastOffset = [self.associatedScrollView contentOffset].y;
     updatingOffset = NO;
@@ -204,8 +211,7 @@
                 // Fix for container items where the offset gets updated
                 updatingOffset = YES;
                 float topOffset = self.frame.origin.y + lastHeight;
-                [_associatedScrollView setScrollIndicatorInsets:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
-                [_associatedScrollView setContentInset:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
+                [self updateScrollInsetsWithTopOffset:topOffset];
                 updatingOffset = NO;
                 return;
             }
@@ -277,8 +283,7 @@
         updatingOffset = YES;
         float topOffset = frameOrigin + lastHeight;
         if (_associatedScrollView.contentInset.top >= 0) {
-            [_associatedScrollView setScrollIndicatorInsets:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
-            [_associatedScrollView setContentInset:UIEdgeInsetsMake(topOffset, 0.0, 0.0, 0.0)];
+            [self updateScrollInsetsWithTopOffset:topOffset];
         }
         updatingOffset = NO;
         
