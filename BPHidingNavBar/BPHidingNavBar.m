@@ -146,13 +146,16 @@
     UIEdgeInsets currentContentInsets = _associatedScrollView.contentInset;
     currentContentInsets.top = topOffset;
     [_associatedScrollView setContentInset:currentContentInsets];
+    if (_associatedScrollView.delegate && [_associatedScrollView.delegate respondsToSelector:@selector(scrollViewDidScroll:)]){
+        [_associatedScrollView.delegate scrollViewDidScroll:_associatedScrollView];
+    }
 }
 
 - (void)updateInfoForOrientationChange{
     updatingOffset = YES;
     // If the new orientation is not tall enough set everything to be showing
     float minHeight = (lastHeight - [self statusBarHeight]) + self.associatedScrollView.frame.size.height;
-    if (self.associatedScrollView.contentSize.height <= minHeight) {
+    if (self.associatedScrollView.contentSize.height <= minHeight || minHeight <= 0) {
         percentShowing = 1.0;
     }
     
