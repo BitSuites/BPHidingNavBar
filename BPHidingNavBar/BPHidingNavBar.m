@@ -71,6 +71,38 @@
 - (void)setAssociatedScrollView:(UIScrollView *)associatedScrollView{
     if ([self isPreiOS7]) // Stop NavBar only works on iOS 7
         return;
+    if (!self.translucent){
+        UIView *mainView = associatedScrollView;
+        if ([[mainView superview] isKindOfClass:[UIWebView class]]){
+            mainView = [mainView superview];
+        }
+        NSArray *constraints = [[mainView superview] constraints];
+        CGFloat adjustAmount = self.frame.size.height + [self statusBarHeight];
+        if ([constraints count] <= 0){
+            if (mainView.frame.origin.y == adjustAmount) {
+                [self performSelector:@selector(adjustScrollFrame) withObject:nil afterDelay:0.0];
+            }
+        } else {
+            for (NSLayoutConstraint *nextConstraint in constraints){
+                if ([nextConstraint firstItem] == mainView || [nextConstraint secondItem] == mainView) {
+                    if ([nextConstraint firstItem] == mainView){
+                        if ([nextConstraint firstAttribute] != NSLayoutAttributeTop){
+                            continue;
+                        }
+                    } else {
+                        if ([nextConstraint secondAttribute] != NSLayoutAttributeTop){
+                            continue;
+                        }
+                    }
+                    // We are in the top constraint of scroll view
+                    if ([nextConstraint constant] == 0){
+                        [nextConstraint setConstant:-adjustAmount];
+                    }
+                }
+            }
+        }
+    }
+    
 	if(_associatedScrollView){
 		[_associatedScrollView removeObserver:self forKeyPath:@"contentOffset"];
 		_associatedScrollView = nil;
@@ -83,6 +115,14 @@
 	}
 	
 	lastOffset = associatedScrollView.contentOffset.y;
+}
+
+- (void)adjustScrollFrame{
+    CGFloat adjustAmount = self.frame.size.height + [self statusBarHeight];
+    CGRect currentFrame = [_associatedScrollView frame];
+    currentFrame.origin.y = currentFrame.origin.y - adjustAmount;
+    currentFrame.size.height = currentFrame.size.height + adjustAmount;
+    [_associatedScrollView setFrame:currentFrame];
 }
 
 - (void)showFullNavBar;{
