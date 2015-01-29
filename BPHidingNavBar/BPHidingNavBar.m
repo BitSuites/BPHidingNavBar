@@ -7,6 +7,23 @@
 
 #import "BPHidingNavBar.h"
 
+@interface BPHidingNavBar() {
+    CGFloat lastOffset;
+    BOOL checkedBackButton;
+    BOOL checkStartedScrolling;
+    BOOL showingBack;
+    CGFloat lastHeight;
+    CGFloat percentShowing;
+    BOOL updatingOffset;
+    
+    CGFloat startedScollPoint;
+    BOOL holdScrolling;
+    
+    BOOL adjustingScrollFrame;
+}
+
+@end
+
 @implementation BPHidingNavBar
 
 - (id)init{
@@ -35,13 +52,19 @@
 
 - (void)dealloc{
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIDeviceOrientationDidChangeNotification object:nil];
-    [_associatedScrollView removeObserver:self forKeyPath:@"contentOffset"];
+    @try{
+        [_associatedScrollView removeObserver:self forKeyPath:@"contentOffset"];
+        [_associatedScrollView removeObserver:self forKeyPath:@"frame"];
+    }@catch(id anException){
+        //do nothing, the scroll view does not have that observer
+    }
 }
 
 - (void)initSetup{
     updatingOffset = NO;
     _holdUpdates = NO;
     checkStartedScrolling = NO;
+    adjustingScrollFrame = NO;
     _scrollHoldPercent = 0.2;
     if ([self isPreiOS7]) // Stop NavBar only works on iOS 7
         return;
@@ -71,6 +94,7 @@
 - (void)setAssociatedScrollView:(UIScrollView *)associatedScrollView{
     if ([self isPreiOS7]) // Stop NavBar only works on iOS 7
         return;
+    BOOL trackFrame = NO;
     if (!self.translucent){
         UIView *mainView = associatedScrollView;
         if ([[mainView superview] isKindOfClass:[UIWebView class]]){
@@ -79,6 +103,7 @@
         NSArray *constraints = [[mainView superview] constraints];
         CGFloat adjustAmount = self.frame.size.height + [self statusBarHeight];
         if ([constraints count] <= 0){
+            trackFrame = [self isPreiOS8];
             if (mainView.frame.origin.y == adjustAmount) {
                 [self performSelector:@selector(adjustScrollFrame) withObject:nil afterDelay:0.0];
             }
@@ -103,16 +128,24 @@
         }
     }
     
-	if(_associatedScrollView){
-		[_associatedScrollView removeObserver:self forKeyPath:@"contentOffset"];
-		_associatedScrollView = nil;
-	}
+    if(_associatedScrollView){
+        @try{
+            [_associatedScrollView removeObserver:self forKeyPath:@"contentOffset"];
+            [_associatedScrollView removeObserver:self forKeyPath:@"frame"];
+        }@catch(id anException){
+            //do nothing, the scroll view does not have that observer
+        }
+        _associatedScrollView = nil;
+    }
     
-	_associatedScrollView = associatedScrollView;
-	if(_associatedScrollView){
+    _associatedScrollView = associatedScrollView;
+    if(_associatedScrollView){
         [self updateScrollInsetRotation:NO];
-		[_associatedScrollView addObserver:self forKeyPath:@"contentOffset" options:0 context:NULL];
-	}
+        [_associatedScrollView addObserver:self forKeyPath:@"contentOffset" options:0 context:NULL];
+        if (trackFrame) {
+            [_associatedScrollView addObserver:self forKeyPath:@"frame" options:0 context:NULL];
+        }
+    }
 	
 	lastOffset = associatedScrollView.contentOffset.y;
 }
@@ -122,7 +155,9 @@
     CGRect currentFrame = [_associatedScrollView frame];
     currentFrame.origin.y = currentFrame.origin.y - adjustAmount;
     currentFrame.size.height = currentFrame.size.height + adjustAmount;
+    adjustingScrollFrame = YES;
     [_associatedScrollView setFrame:currentFrame];
+    adjustingScrollFrame = NO;
 }
 
 - (void)showFullNavBar;{
@@ -147,6 +182,10 @@
 
 - (BOOL)isPreiOS7{
     return (!(NSFoundationVersionNumber > NSFoundationVersionNumber_iOS_6_1));
+}
+
+- (BOOL)isPreiOS8{
+    return (!(NSFoundationVersionNumber > NSFoundationVersionNumber_iOS_7_1));
 }
 
 - (BOOL)isBackButtonView:(UIView *)possibleView{
@@ -243,7 +282,11 @@
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context{
-	if([keyPath isEqualToString:@"contentOffset"]){
+    if([keyPath isEqualToString:@"frame"]){
+        if (!adjustingScrollFrame){
+            [self adjustScrollFrame];
+        }
+    } else if([keyPath isEqualToString:@"contentOffset"]){
         if (updatingOffset || _holdUpdates)
             return;
         // Don't start updating until the user starts scrolling

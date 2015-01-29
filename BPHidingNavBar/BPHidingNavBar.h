@@ -7,19 +7,7 @@
 
 #import <UIKit/UIKit.h>
 
-@interface BPHidingNavBar : UINavigationBar{
-	CGFloat lastOffset;
-	BOOL checkedBackButton;
-    BOOL checkStartedScrolling;
-	BOOL showingBack;
-    CGFloat lastHeight;
-    CGFloat percentShowing;
-    BOOL updatingOffset;
-    
-    CGFloat startedScollPoint;
-    BOOL holdScrolling;
-    
-}
+@interface BPHidingNavBar : UINavigationBar
 
 /** Scrollview that we associate with for hiding and showing the nav bar
  
