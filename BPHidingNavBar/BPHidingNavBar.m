@@ -103,7 +103,7 @@
         NSArray *constraints = [[mainView superview] constraints];
         CGFloat adjustAmount = self.frame.size.height + [self statusBarHeight];
         if ([constraints count] <= 0){
-            trackFrame = [self isPreiOS8];
+            trackFrame = YES;
             if (mainView.frame.origin.y == adjustAmount) {
                 [self performSelector:@selector(adjustScrollFrame) withObject:nil afterDelay:0.0];
             }
@@ -182,10 +182,6 @@
 
 - (BOOL)isPreiOS7{
     return (!(NSFoundationVersionNumber > NSFoundationVersionNumber_iOS_6_1));
-}
-
-- (BOOL)isPreiOS8{
-    return (!(NSFoundationVersionNumber > NSFoundationVersionNumber_iOS_7_1));
 }
 
 - (BOOL)isBackButtonView:(UIView *)possibleView{
