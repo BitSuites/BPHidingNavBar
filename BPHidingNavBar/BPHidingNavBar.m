@@ -88,7 +88,12 @@
     }];
     [self setAssociatedScrollView:associatedScrollView];
     checkStartedScrolling = NO;
-	checkedBackButton = NO;
+    checkedBackButton = NO;
+}
+
+- (void)setupNavBarWithAssiciatedScrollView:(UIScrollView *)associatedScrollView contentBehindNav:(BOOL)contentBehind; {
+    self.allowContentBehind = contentBehind;
+    [self setupNavBarWithAssiciatedScrollView:associatedScrollView];
 }
 
 - (void)setAssociatedScrollView:(UIScrollView *)associatedScrollView{
@@ -146,8 +151,10 @@
             [_associatedScrollView addObserver:self forKeyPath:@"frame" options:0 context:NULL];
         }
     }
-	
-	lastOffset = associatedScrollView.contentOffset.y;
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        lastOffset = associatedScrollView.contentOffset.y;
+    });
 }
 
 - (void)adjustScrollFrame{
@@ -174,7 +181,7 @@
         percentShowing = 1.0;
         [self updateViewAlpha];
     } completion:^(BOOL finished) {
-		lastOffset = _associatedScrollView.contentOffset.y;
+        lastOffset = _associatedScrollView.contentOffset.y;
     }];
 }
 
@@ -185,11 +192,11 @@
 }
 
 - (BOOL)isBackButtonView:(UIView *)possibleView{
-	return [NSStringFromClass([possibleView class]) rangeOfString:@"Back"].location != NSNotFound && [NSStringFromClass([possibleView class]) rangeOfString:@"Background"].location == NSNotFound;
+    return [NSStringFromClass([possibleView class]) rangeOfString:@"Back"].location != NSNotFound && [NSStringFromClass([possibleView class]) rangeOfString:@"Background"].location == NSNotFound;
 }
 
 - (BOOL)isBackgroundView:(UIView *)possibleView{
-	return [NSStringFromClass([possibleView class]) rangeOfString:@"Background"].location != NSNotFound;
+    return [NSStringFromClass([possibleView class]) rangeOfString:@"Background"].location != NSNotFound;
 }
 
 - (void)updateScrollInsetRotation:(BOOL)rotation{
@@ -218,9 +225,11 @@
     UIEdgeInsets currentScrollInsets = _associatedScrollView.scrollIndicatorInsets;
     currentScrollInsets.top = topOffset;
     [_associatedScrollView setScrollIndicatorInsets:currentScrollInsets];
-    UIEdgeInsets currentContentInsets = _associatedScrollView.contentInset;
-    currentContentInsets.top = topOffset;
-    [_associatedScrollView setContentInset:currentContentInsets];
+    if (!self.allowContentBehind) {
+        UIEdgeInsets currentContentInsets = _associatedScrollView.contentInset;
+        currentContentInsets.top = topOffset;
+        [_associatedScrollView setContentInset:currentContentInsets];
+    }
     if (_associatedScrollView.delegate && [_associatedScrollView.delegate respondsToSelector:@selector(scrollViewDidScroll:)]){
         [_associatedScrollView.delegate scrollViewDidScroll:_associatedScrollView];
     }
@@ -309,7 +318,7 @@
             return;
         }
         
-		CGPoint offset = [self.associatedScrollView contentOffset];
+        CGPoint offset = [self.associatedScrollView contentOffset];
         
         // If this is start of scroll determine if should be holding for displaying nav bar
         if ([self.associatedScrollView panGestureRecognizer].state == UIGestureRecognizerStateBegan) {
@@ -334,32 +343,34 @@
         }
         
         CGFloat topInset = lastHeight + [self statusBarHeight];
+        if (self.allowContentBehind) {
+            topInset = 0.0;
+        }
         if(offset.y + topInset <= 0.0){
-			// Above the top, bouncing nav should be fully showing
-			lastOffset = offset.y;
+            // Above the top, bouncing nav should be fully showing
+            lastOffset = offset.y;
             if (percentShowing != 1.0) {
                 percentShowing = 1.0;
                 [self updateBasedOnPercent];
             }
-			return;
-		}
+            return;
+        }
         
         if(self.associatedScrollView.contentOffset.y > (self.associatedScrollView.contentSize.height - self.associatedScrollView.frame.size.height + self.associatedScrollView.contentInset.bottom)){
-			// Bellow bottom, bouncing nav should be fully hidden
-			lastOffset = offset.y;
+            // Bellow bottom, bouncing nav should be fully hidden
+            lastOffset = offset.y;
             if (percentShowing != 0.0) {
                 percentShowing = 0.0;
                 [self updateBasedOnPercent];
             }
-			return;
+            return;
         }
-		CGFloat frameOrigin = self.frame.origin.y;
-		CGFloat dy = offset.y - lastOffset;
+        CGFloat frameOrigin = self.frame.origin.y;
+        CGFloat dy = offset.y - lastOffset;
         
-		
-		frameOrigin = MIN(MAX(frameOrigin - dy, - (lastHeight - [self statusBarHeight])), [self statusBarHeight]);
-		CGRect currentFrame = self.frame;
-		currentFrame.origin.y = frameOrigin;
+        frameOrigin = MIN(MAX(frameOrigin - dy, - (lastHeight - [self statusBarHeight])), [self statusBarHeight]);
+        CGRect currentFrame = self.frame;
+        currentFrame.origin.y = frameOrigin;
         
         // Update Insets so headers stay at the top
         updatingOffset = YES;
@@ -369,19 +380,18 @@
         }
         updatingOffset = NO;
         
-		percentShowing = (frameOrigin + (lastHeight - [self statusBarHeight])) / lastHeight;
+        percentShowing = (frameOrigin + (lastHeight - [self statusBarHeight])) / lastHeight;
         
-		self.frame = currentFrame;
-		
-		[self updateViewAlpha];
-		
-		lastOffset = offset.y;
-	}
+        self.frame = currentFrame;
+        
+        [self updateViewAlpha];
+        lastOffset = offset.y;
+    }
 }
 
 - (void)checkBackButton{
     if(!checkedBackButton){
-		// If the percent is 1.0 that means the view is fully visible and we can compute whether the back button is showing or not
+        // If the percent is 1.0 that means the view is fully visible and we can compute whether the back button is showing or not
         // Set showing back button
         [[self subviews] enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
             UIView *view = obj;

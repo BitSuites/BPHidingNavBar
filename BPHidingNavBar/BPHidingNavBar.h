@@ -31,11 +31,24 @@
  */
 @property (nonatomic) BOOL holdUpdates;
 
+/** Called to inform navbar wether the content is behind the nav bar or not
+ 
+ Return YES to hold and NO as to wehter there is content behind
+ */
+@property (nonatomic) BOOL allowContentBehind;
+
 /** Setup nav bar with scrollview that initalises nav bar with buttons that will be hiding
  
  @param associatedScrollView scroll view that will be used to show and hide the navBar
  */
 - (void)setupNavBarWithAssiciatedScrollView:(UIScrollView *)associatedScrollView;
+
+/** Setup nav bar with scrollview that initalises nav bar with buttons that will be hiding
+ 
+ @param associatedScrollView scroll view that will be used to show and hide the navBar
+ @param contentBehind wether there is content that is behind the nav bar
+ */
+- (void)setupNavBarWithAssiciatedScrollView:(UIScrollView *)associatedScrollView contentBehindNav:(BOOL)contentBehind;
 
 /** Shows the full nav bar with animation
  */
