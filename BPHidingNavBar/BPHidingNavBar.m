@@ -1,7 +1,6 @@
 //
 //  BPHidingNavBar.m
 //
-//  Created by Cory Imdieke on 12/31/13.
 //  Copyright (c) 2013 BitSuites, LLC. All rights reserved.
 //
 
@@ -13,6 +12,7 @@
     BOOL checkStartedScrolling;
     BOOL showingBack;
     CGFloat lastHeight;
+    CGFloat scrollOffsets;
     CGFloat percentShowing;
     BOOL updatingOffset;
     
@@ -66,16 +66,12 @@
     checkStartedScrolling = NO;
     adjustingScrollFrame = NO;
     _scrollHoldPercent = 0.2;
-    if ([self isPreiOS7]) // Stop NavBar only works on iOS 7
-        return;
     [[NSNotificationCenter defaultCenter] addObserver:self  selector:@selector(orientationChanged)  name:UIDeviceOrientationDidChangeNotification  object:nil];
 }
 
 #pragma mark - User Methods
 
 - (void)setupNavBarWithAssiciatedScrollView:(UIScrollView *)associatedScrollView{
-    if ([self isPreiOS7]) // Stop NavBar only works on iOS 7
-        return;
     [UIView animateWithDuration:0.3 animations:^{
         CGRect currentFrame = self.frame;
         currentFrame.origin.y = 20.0;
@@ -97,8 +93,6 @@
 }
 
 - (void)setAssociatedScrollView:(UIScrollView *)associatedScrollView{
-    if ([self isPreiOS7]) // Stop NavBar only works on iOS 7
-        return;
     BOOL trackFrame = NO;
     if (!self.translucent){
         UIView *mainView = associatedScrollView;
@@ -172,8 +166,6 @@
 }
 
 - (void)showFullNavBarAnimated:(BOOL)animated{
-    if ([self isPreiOS7]) // Stop NavBar only works on iOS 7
-        return;
     [UIView animateWithDuration:(animated ? 0.3 : 0.0) animations:^{
         CGRect currentFrame = self.frame;
         currentFrame.origin.y = 20.0;
@@ -187,8 +179,11 @@
 
 #pragma mark - Local Methdos
 
-- (BOOL)isPreiOS7{
-    return (!(NSFoundationVersionNumber > NSFoundationVersionNumber_iOS_6_1));
+- (BOOL)isIOS11Greater {
+    if (@available(iOS 11, *)) {
+        return YES;
+    }
+    return NO;
 }
 
 - (BOOL)isBackButtonView:(UIView *)possibleView{
@@ -201,18 +196,28 @@
 
 - (void)updateScrollInsetRotation:(BOOL)rotation{
     lastHeight = self.frame.size.height;
+    scrollOffsets = self.frame.size.height + [self statusBarHeight];
+    if (![self isIOS11Greater]) {
+        scrollOffsets = 0;
+    }
     if (_associatedScrollView) {
         updatingOffset = YES;
         CGFloat top = lastHeight + [self statusBarHeight];
+        if ([self isIOS11Greater]) {
+            top = 0.0;
+            [self updateScrollInsetsWithTopOffset:scrollOffsets];
+        } else {
+            [self updateScrollInsetsWithTopOffset:top];
+        }
         BOOL firstLoad = _associatedScrollView.scrollIndicatorInsets.top < top;
         CGPoint startOffest = _associatedScrollView.contentOffset;
         
-        [self updateScrollInsetsWithTopOffset:top];
         // Should only add the top on the first time it is loaded or the offest begins to go beyond the bar
-        if (startOffest.y <= 0 && startOffest.y > -top && !rotation && firstLoad)
+        if (startOffest.y <= 0 && startOffest.y > -top && !rotation && firstLoad) {
             [_associatedScrollView setContentOffset:CGPointMake(startOffest.x, (-top + startOffest.y))];
-        else
+        } else {
             [_associatedScrollView setContentOffset:startOffest];
+        }
         updatingOffset = NO;
     }
 }
@@ -222,6 +227,7 @@
 }
 
 - (void)updateScrollInsetsWithTopOffset:(CGFloat)topOffset{
+    topOffset -= scrollOffsets;
     UIEdgeInsets currentScrollInsets = _associatedScrollView.scrollIndicatorInsets;
     currentScrollInsets.top = topOffset;
     [_associatedScrollView setScrollIndicatorInsets:currentScrollInsets];
@@ -292,8 +298,9 @@
             [self adjustScrollFrame];
         }
     } else if([keyPath isEqualToString:@"contentOffset"]){
-        if (updatingOffset || _holdUpdates)
+        if (updatingOffset || _holdUpdates){
             return;
+        }
         // Don't start updating until the user starts scrolling
         if (!checkStartedScrolling) {
             if ([self.associatedScrollView panGestureRecognizer].state == UIGestureRecognizerStateBegan){
@@ -356,7 +363,7 @@
             return;
         }
         
-        if(self.associatedScrollView.contentOffset.y > (self.associatedScrollView.contentSize.height - self.associatedScrollView.frame.size.height + self.associatedScrollView.contentInset.bottom)){
+        if(self.associatedScrollView.contentOffset.y >= (self.associatedScrollView.contentSize.height - self.associatedScrollView.frame.size.height + self.associatedScrollView.contentInset.bottom)){
             // Bellow bottom, bouncing nav should be fully hidden
             lastOffset = offset.y;
             if (percentShowing != 0.0) {
@@ -375,7 +382,7 @@
         // Update Insets so headers stay at the top
         updatingOffset = YES;
         float topOffset = frameOrigin + lastHeight;
-        if (_associatedScrollView.contentInset.top >= 0) {
+        if (_associatedScrollView.contentInset.top >= -scrollOffsets) {
             [self updateScrollInsetsWithTopOffset:topOffset];
         }
         updatingOffset = NO;
@@ -399,8 +406,9 @@
                 // Found back button
                 *stop = YES;
                 showingBack = view.alpha == 1.0;
-                if (checkStartedScrolling)
+                if (checkStartedScrolling) {
                     checkedBackButton = YES;
+                }
             }
         }];
     }
