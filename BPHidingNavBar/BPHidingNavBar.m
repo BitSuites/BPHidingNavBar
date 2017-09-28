@@ -74,7 +74,7 @@
 - (void)setupNavBarWithAssiciatedScrollView:(UIScrollView *)associatedScrollView{
     [UIView animateWithDuration:0.3 animations:^{
         CGRect currentFrame = self.frame;
-        currentFrame.origin.y = 20.0;
+        currentFrame.origin.y = [UIApplication sharedApplication].statusBarFrame.size.height;
         self.frame = currentFrame;
         percentShowing = 1.0;
         // Fixes issue if controller is nil when going back sliding
@@ -168,7 +168,7 @@
 - (void)showFullNavBarAnimated:(BOOL)animated{
     [UIView animateWithDuration:(animated ? 0.3 : 0.0) animations:^{
         CGRect currentFrame = self.frame;
-        currentFrame.origin.y = 20.0;
+        currentFrame.origin.y = [UIApplication sharedApplication].statusBarFrame.size.height;
         self.frame = currentFrame;
         percentShowing = 1.0;
         [self updateViewAlpha];
@@ -223,7 +223,7 @@
 }
 
 - (CGFloat)statusBarHeight{
-    return ([[UIApplication sharedApplication] isStatusBarHidden] ? 0.0 : 20.0);
+    return ([[UIApplication sharedApplication] isStatusBarHidden] ? 0.0 : [UIApplication sharedApplication].statusBarFrame.size.height);
 }
 
 - (void)updateScrollInsetsWithTopOffset:(CGFloat)topOffset{
@@ -415,3 +415,4 @@
 }
 
 @end
+
